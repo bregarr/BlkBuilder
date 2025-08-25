@@ -1,60 +1,395 @@
-#include <iostream>
-#include <fstream>
 #include <string>
 #include <vector>
-#include <stdio.h>
+#include <fstream>
+#include <iostream>
 #include <filesystem>
+#include <cstring>
+#include <cstdint>
+#include "nlohmann/json.hpp"
+#include "lodepng/lodepng.h"
 
-using byte = std::uint8_t;
+using json = nlohmann::json_abi_v3_12_0::json;
 
-   //  Debug shit
-void printVector(std::vector<std::byte> vec){
-   for(std::byte byt : vec){
-      std::cout << static_cast<int>(byt);
+uint16_t bufftoi16(const char buff[], const size_t & start, const size_t & end){
+   size_t length = end - start;
+   uint16_t val;
+   unsigned char bytes[length];
+   std::copy(buff+start, buff+end, bytes);
+   std::memcpy(&val, bytes, length);
+   return val;
+}
+uint32_t bufftoi32(char buff[], const size_t & start, const size_t & end){
+   size_t length = end - start;
+   if (length > sizeof(uint32_t)) {
+      throw std::runtime_error("Length too large for uint32_t");
+   }
+   uint32_t val;
+   std::memcpy(&val, buff + start, length);
+   return val;
+}
+int bufftoi(const char buff[], const size_t & start, const size_t & end){
+   size_t length = end - start;
+   char val;
+   unsigned char bytes[length];
+   std::copy(buff+start, buff+end, bytes);
+   std::memcpy(&val, bytes, length);
+   return val;
+}
+
+std::string bufftos(const char buff[], const size_t & start, const size_t & end, bool skipSpace = true){
+   std::string returnString;
+   for(int i=start; i<end; ++i){
+      if(isspace(buff[i]) || buff[i] == '\u0000') { return returnString; }
+      returnString += buff[i];
+   }
+   return returnString;
+}
+
+void stob(const uint16_t &shrt, char* ret){
+   for(int i=0; i < 2; ++i){
+      ret[1 - i] = (shrt >> (i * 8));
+   }
+}
+void ltob(const uint32_t &lng, char* ret){
+   for(int i=0; i < 4; ++i){
+      ret[3 - i] = (lng >> (i * 8));
    }
 }
 
-std::byte Byt(int inp) { return static_cast<std::byte>(inp); }
-
-int ReadByte(std::byte bytearr[], int size){ 
-   std::ostringstream oss;
-   for(int i=0; i<size; ++i) {
-      oss << static_cast<int>(bytearr[i]);
+void fixFileFormat(std::string & filePath){
+   for(char & c : filePath){
+      if(c == '/') { c = std::filesystem::path::preferred_separator; }
    }
-   return std::stoi(oss.str());
 }
 
-// Code
-class Blockfile{
+void createParentDirectories(const std::string & filePath){
+   std::string workingPath;
+   for(const char & c : filePath){
+      workingPath += c;
+      if(c == std::filesystem::path::preferred_separator){
 
-   std::byte GameID[4];// 4 Byte Game ID (?)
-   std::byte Length[2];// 2 Byte Length
-   // std::byte ??[2];// 2 Byte Unkown
-   std::byte BlockSize[2];// 2 Byte String Block Size (?)
-   // std::byte ??[2];// 2 Byte Unkown 
-   std::byte Magic[4] = {Byt(02), Byt(00), Byt(00), Byt(00)};// 4 Byte Magic [02 00 00 00]
-   Blockfile(std::ifstream &BlkFile){
+         if(!std::filesystem::exists(workingPath)){
+            std::filesystem::create_directories(workingPath);
+         }
+
+      }
+   }
+}
+
+template <typename T>
+void printVector(const std::vector<T>& vec){
+   for(T item : vec){
+      std::cout << item << ", ";
+   }
+   std::cout << std::endl;
+}
+
+void ManageDecomp(std::ifstream & file, std::string filenamelong){
+   // Header Manager
+
+   int GameIDMaj;
+   int GameIDMin;
+   int Size;
+   int Padding;
+   int PathLength;
+   int Unused;
+   int FileTableOffset;
+   int DataOffset;
+   int Unused2;
+
+   {
+   char HeaderBuffer[24];
+   file.read(HeaderBuffer, 24);
+   GameIDMaj = bufftoi16(HeaderBuffer, 0, 2);
+   GameIDMin = bufftoi16(HeaderBuffer, 2, 4);
+   Size = bufftoi16(HeaderBuffer, 4, 6);
+   Padding = bufftoi16(HeaderBuffer, 6, 8);
+   PathLength = bufftoi16(HeaderBuffer, 8, 10);
+   Unused = bufftoi16(HeaderBuffer, 10, 12);
+   FileTableOffset = bufftoi32(HeaderBuffer, 12, 16);
+   DataOffset = bufftoi32(HeaderBuffer, 16, 20);
+   Unused2 = bufftoi32(HeaderBuffer, 20, 24);
+   }
+
+   std::string filename = filenamelong.substr(0,filenamelong.size()-4);
+   std::filesystem::create_directory(filename);
+   // std::ofstream jsonFile(filename+std::filesystem::path::preferred_separator+filename+".json");
+
+   file.seekg(FileTableOffset, std::ios::beg);
+
+   for(int i=0; i<Size; ++i){
+      // Debug
+      file.seekg(FileTableOffset + 156*i, std::ios::beg);
+
+      // Fill Json File
+      char FileNameBuffer[128];
+      file.read(FileNameBuffer, 128);
+      std::string filePath = bufftos(FileNameBuffer, 0, 128);
+      fixFileFormat(filePath);
+      // std::cout << filePath << std::endl;
+
+      char SegmentBuffer[28];
+      file.read(SegmentBuffer, 28);
+      int Offset = bufftoi32(SegmentBuffer, 0, 4);
+      int Length = bufftoi32(SegmentBuffer, 4, 8);
+      int PadLength = bufftoi(SegmentBuffer, 8, 9);
+      int Unused = bufftoi(SegmentBuffer, 9, 10);
+      int Unused2 = bufftoi16(SegmentBuffer, 10, 12);
+      std::string MD5 = bufftos(SegmentBuffer, 12, 28, false);
+
+      // Create & Populate Asset Files
+      // std::cout << Offset << std::endl;
+      if (!file.is_open()) {
+         std::cerr << "ERROR: File not open\n";
+         std::exit(1);
+      }
+      if (!file.good()) {
+         std::cerr << "ERROR: File stream not good before seek\n";
+         std::exit(1);
+      }
+      file.clear();
+      file.seekg(Offset, std::ios::beg);
+      // std::cout << filename+std::filesystem::path::preferred_separator+filePath << std::endl;
+      // std::cout << file.tellg() << std::endl;
+      createParentDirectories(filename+std::filesystem::path::preferred_separator+filePath);
+      std::ofstream assetFile(filename+std::filesystem::path::preferred_separator+filePath);
+      std::vector<unsigned char> assetBuffer(Length); // VLA is bad dont write this
+      file.read(reinterpret_cast<char*>(assetBuffer.data()), Length);
+      assetFile.write(reinterpret_cast<const char*>(assetBuffer.data()), assetBuffer.size());
+
+      assetFile.close();
+   }
+   // jsonFile << std::setw(4) << j.dump(-1, ' ', false, json::error_handler_t::replace) << std::endl;
+
+   
+
+
+   // jsonFile.close();
+}
+
+void STP(std::ifstream & file, std::string filenamelong){
+   // Header Manager
+   char code[2];
+   short version;
+   short numFrames;
+   short unused;
+   unsigned long flags;
+   float framesPerSecond;
+   long dataStartOffset;
+   
+   // Current theory: Header holds frames, frames hold segments
+   // Nest the FUCK out of for loops :)
+   // Pixel data found in segment header's offset?
+   {
+      char HeaderBuffer[20];
+      file.read(HeaderBuffer, 20);
+      code[0] = HeaderBuffer[0]; code[1] = HeaderBuffer[1];
+      version = bufftoi16(HeaderBuffer, 2, 4);
+      numFrames = bufftoi16(HeaderBuffer, 4, 6);
+      unused = bufftoi16(HeaderBuffer, 6, 8);
+      flags = bufftoi32(HeaderBuffer, 8, 12);
+      framesPerSecond = bufftoi32(HeaderBuffer, 12, 16);
+      dataStartOffset = bufftoi32(HeaderBuffer, 16, 20);
+   }
+
+   std::string filename = filenamelong.substr(0,filenamelong.size()-4);
+
+   int totalSegs = 0;
+   // Frame Iterator
+   size_t frameSize = 16;
+   size_t segSize = 20;
+
+   std::vector<std::size_t> segGroupVec;
+   const std::size_t segDataLen = 5;
+   std::vector<long> segData; // Pairs of 5, [Length, Offset, Width, Height, Group]
+   unsigned totalWidth;
+   unsigned totalHeight;
+
+   for(int i=0; i<numFrames; ++i){
+      char FrameHeaderBuffer[16];
+      file.read(FrameHeaderBuffer, 16);
+
+      short mode = bufftoi16(FrameHeaderBuffer, 0, 2);
+      short hasAlpha = bufftoi16(FrameHeaderBuffer, 2, 4);
+      short width = bufftoi16(FrameHeaderBuffer, 4, 6); totalWidth = 2*width;
+      short height = bufftoi16(FrameHeaderBuffer, 6, 8); totalHeight = 2*height;
+      short hotSpotX = bufftoi16(FrameHeaderBuffer, 8, 10);
+      short hotSpotY = bufftoi16(FrameHeaderBuffer, 10, 12);
+      short unused2 = bufftoi16(FrameHeaderBuffer, 12, 14); // Noted to be padding?
+      short numSegments = bufftoi16(FrameHeaderBuffer, 14, 16);
+      segGroupVec.push_back(numSegments);
+      totalSegs += numSegments;
+
+
+      std::size_t segGroup = segGroupVec.size()-1;
+      int groupCount = 0;
+
+      for(int j=0; j<numSegments; ++j){
+         char SegHeaderBuffer[20];
+         file.read(SegHeaderBuffer, 20);
+
+         short segFlags = bufftoi16(SegHeaderBuffer, 0, 2);
+         short numMipMaps = bufftoi16(SegHeaderBuffer, 2, 4);
+         short segWidth = bufftoi16(SegHeaderBuffer, 4, 6);
+         short segHeight = bufftoi16(SegHeaderBuffer, 6, 8);
+         short xOffset = bufftoi16(SegHeaderBuffer, 8, 10);
+         short yOffset = bufftoi16(SegHeaderBuffer, 10, 12);
+         long segLength = bufftoi32(SegHeaderBuffer, 12, 16);
+         long segOffset = bufftoi32(SegHeaderBuffer, 16, 20);
+         segData.push_back(segLength);
+         segData.push_back(segOffset);
+         segData.push_back(segWidth);
+         segData.push_back(segHeight);
+         if(groupCount >= segGroupVec.at(segGroup)) {
+            groupCount = 0;
+            segGroup++;
+         }
+         segData.push_back(segGroup);
+         groupCount++;
+      }
 
    }
 
-};
+   std::vector<std::vector<uint8_t>> rawImageBuffer;
+   std::size_t prevIndex = -1;
+   std::vector<uint8_t> temp;
+   for (int i=0; i<totalSegs; ++i){
+      std::size_t bufferIndex = segData[i*segDataLen+4];
 
-std::vector<std::byte> getBytes(const std::string &path){
-   std::ifstream file { path, std::ios::binary };
-   auto length { std::filesystem::file_size(path) };
-   std::vector<std::byte> result (length);
-   file.read(reinterpret_cast<char*>(result.data()), static_cast<long>(length));
-   return result;
+      file.seekg(segData[1+segDataLen*i] + dataStartOffset, std::ios::beg);
+      std::size_t oldSize = temp.size();
+      temp.resize(oldSize + segData[i*segDataLen]);
+      file.read(reinterpret_cast<char*>(temp.data() + oldSize), segData[i*segDataLen]);
+
+      if(bufferIndex != prevIndex) {
+         rawImageBuffer.push_back(temp);
+         temp.clear();
+      }
+      prevIndex = bufferIndex;
+   }
+   if(!temp.empty()){
+      rawImageBuffer.push_back(temp);
+   }
+
+   for (int i=0; i<numFrames; ++i){
+      std::string combinedFileName = filename+std::to_string(i)+".png";
+      // createParentDirectories(filename+std::filesystem::path::preferred_separator+filePath);
+
+      lodepng::State state;
+      const std::size_t expected_rgba = segData[2 + segDataLen*i] * segData[3 + segDataLen*i] * 4;
+      const std::size_t expected_rgb  = segData[2 + segDataLen*i] * segData[3 + segDataLen*i] * 3;
+      const std::size_t expected_gray = segData[2 + segDataLen*i] * segData[3 + segDataLen*i];
+      std::vector<uint8_t> frameBuffer;
+      if (expected_rgba == rawImageBuffer.at(i).size()){ // rgba
+         frameBuffer = rawImageBuffer.at(i);
+      }
+      else if (expected_rgb == rawImageBuffer.at(i).size()){ // rgb
+         std::cout << "BLKBLDR:: Not enough bytes found. Removing alpha channel." << std::endl;
+         std::size_t rgbSize = rawImageBuffer.at(i).size() / 3 * 4;
+         frameBuffer.reserve(rgbSize);
+         for(int j=0; j<rawImageBuffer.at(i).size(); j+=3){
+            frameBuffer.push_back(rawImageBuffer.at(i).at(j));
+            frameBuffer.push_back(rawImageBuffer.at(i).at(j+1));
+            frameBuffer.push_back(rawImageBuffer.at(i).at(j+2));
+            frameBuffer.push_back(255);
+         }
+      }
+      else if (expected_gray == rawImageBuffer.at(i).size()){ //grey-scale
+         std::cout << "BLKBLDR:: Not enough bytes found. Outputting in greyscale." << std::endl;
+         frameBuffer = rawImageBuffer.at(i);
+      }
+
+      unsigned error = lodepng::encode(combinedFileName, frameBuffer, segData[2 + segDataLen*i], segData[3 + segDataLen*i]); // , LCT_GREY, 8
+      if(error){
+         std::cerr << "PNG Encode Error " << error << ": " << lodepng_error_text(error) << "\n";
+      }
+   }
+
+   std::cout << "BLKBLDR:: Decompiled file with FPS: " << framesPerSecond << ", flags: " << flags << std::endl;
+
 }
+
+void PTS(const std::string &fileName, const float &fps, const unsigned long &flagsPass, std::vector<std::string> &fileVec){
+   std::ofstream file(fileName, std::ios::binary);
+   if(!file.is_open()) { std::cerr << "Could not open file.\n"; return; }
+   
+   // Header Manager
+   char code[2]; code[0] = 'S'; code[1] = 'p';
+   char verbuff[2]; verbuff[0] = '3'; verbuff[1] = '0';
+   short version = bufftos(verbuff, 0, 2, false); // Seems like [3], [0]
+   short numFrames = fileVec.size();
+   short unused; // Blank?
+   unsigned long flags = flagsPass;
+   float framesPerSecond = fps;
+   long dataStartOffset; // Start building the file before inputting and take the header + frame header count * frame header size  + seg header count * seg header size
+
+   file.close();
+}
+
 
 // Argument -d (Deconstruct)
-//    input.blk, target directory, -d
+//    input.blk, -d
+// Argument -stp (.spa to .png)
+//    input.spa, -stp
+// Argument -pts (.png to .spa)
+//    output.spa, fps, flags, [input.png, input1.png, input2.png, ...], -pts
 int main(int argc, char *argv[]){
 
-   if(argc == 4 && static_cast<std::string>(argv[3]) == "-d"){
-      std::vector<std::byte> fileBytes = getBytes(argv[1]);
-      printVector(fileBytes);
+   if(argc == 3 && static_cast<std::string>(argv[2]) == "-d"){
+      std::ifstream file(static_cast<std::string>(argv[1]), std::ios::binary);
+      if(!file.is_open()) { std::cerr << "Could not open file.\n"; return 1; }
+      
+      ManageDecomp(file, static_cast<std::string>(argv[1]));
+
+      file.close();
+   }
+   else if(argc == 3 && static_cast<std::string>(argv[2]) == "-stp"){
+      std::ifstream file(static_cast<std::string>(argv[1]), std::ios::binary);
+      if(!file.is_open()) { std::cerr << "Could not open file.\n"; return 1; }
+      
+      STP(file, static_cast<std::string>(argv[1]));
+
+      file.close();
+   }
+   else if(argc >= 6 && static_cast<std::string>(argv[argc-1]) == "-pts"){
+      std::vector<std::string> fileVec;
+      for(std::size_t i = 4; i < argc-1; ++i){
+         fileVec.push_back(static_cast<std::string>(argv[i]));
+      }
+
+      PTS(static_cast<std::string>(argv[1]), static_cast<float>(argv[2]), static_cast<unsigned long>(argv[3]), fileVec);
    }
 
    return 0;
 }
+
+
+// Json shit
+   // for(int i=0; i<Size; ++i){
+   //    // Debug
+   //    file.seekg(FileTableOffset + 156*i, std::ios::beg);
+
+   //    // Fill Json File
+   //    char FileNameBuffer[128];
+   //    file.read(FileNameBuffer, 128);
+   //    std::string filePath = bufftos(FileNameBuffer, 0, 128);
+   //    j[i]["FilePath"] = filePath;
+
+   //    char SegmentBuffer[28];
+   //    file.read(SegmentBuffer, 28);
+   //    j[i]["Offset"] = bufftoi32(SegmentBuffer, 0, 4);
+   //    j[i]["Length"] = bufftoi32(SegmentBuffer, 4, 8);
+   //    j[i]["PadLength"] = bufftoi(SegmentBuffer, 8, 9);
+   //    j[i]["Unused"] = bufftoi(SegmentBuffer, 9, 10);
+   //    j[i]["Unused2"] = bufftoi16(SegmentBuffer, 10, 12);
+   //    j[i]["MD5"] = bufftos(SegmentBuffer, 12, 28, false);
+
+   //    // Create & Populate Asset Files
+   //    file.seekg(bufftoi32(SegmentBuffer, 0, 4), std::ios::beg);
+   //    std::ofstream assetFile(filename+std::filesystem::path::preferred_separator+filePath, std::ios::binary);
+   //    char assetBuffer[bufftoi32(SegmentBuffer, 4, 8)];
+   //    file.read(assetBuffer, bufftoi32(SegmentBuffer, 4, 8));
+   //    assetFile << static_cast<std::string>(assetBuffer);
+
+   //    assetFile.close();
+   // }
