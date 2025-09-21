@@ -2,3 +2,4 @@
 blockfiles/
 CMakeLists/
 main/
+*.lib
