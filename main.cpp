@@ -1,88 +1,6 @@
-#include <string>
-#include <vector>
-#include <fstream>
-#include <iostream>
-#include <filesystem>
-#include <cstring>
-#include <cstdint>
-#include "nlohmann/json.hpp"
-#include "lodepng/lodepng.h"
+#include "main.h"
 
 using json = nlohmann::json_abi_v3_12_0::json;
-
-uint16_t bufftoi16(const char buff[], const size_t & start, const size_t & end){
-   size_t length = end - start;
-   uint16_t val;
-   unsigned char bytes[length];
-   std::copy(buff+start, buff+end, bytes);
-   std::memcpy(&val, bytes, length);
-   return val;
-}
-uint32_t bufftoi32(char buff[], const size_t & start, const size_t & end){
-   size_t length = end - start;
-   if (length > sizeof(uint32_t)) {
-      throw std::runtime_error("Length too large for uint32_t");
-   }
-   uint32_t val;
-   std::memcpy(&val, buff + start, length);
-   return val;
-}
-int bufftoi(const char buff[], const size_t & start, const size_t & end){
-   size_t length = end - start;
-   char val;
-   unsigned char bytes[length];
-   std::copy(buff+start, buff+end, bytes);
-   std::memcpy(&val, bytes, length);
-   return val;
-}
-
-std::string bufftos(const char buff[], const size_t & start, const size_t & end, bool skipSpace = true){
-   std::string returnString;
-   for(int i=start; i<end; ++i){
-      if(isspace(buff[i]) || buff[i] == '\u0000') { return returnString; }
-      returnString += buff[i];
-   }
-   return returnString;
-}
-
-void stob(const uint16_t &shrt, char* ret){
-   for(int i=0; i < 2; ++i){
-      ret[1 - i] = (shrt >> (i * 8));
-   }
-}
-void ltob(const uint32_t &lng, char* ret){
-   for(int i=0; i < 4; ++i){
-      ret[3 - i] = (lng >> (i * 8));
-   }
-}
-
-void fixFileFormat(std::string & filePath){
-   for(char & c : filePath){
-      if(c == '/') { c = std::filesystem::path::preferred_separator; }
-   }
-}
-
-void createParentDirectories(const std::string & filePath){
-   std::string workingPath;
-   for(const char & c : filePath){
-      workingPath += c;
-      if(c == std::filesystem::path::preferred_separator){
-
-         if(!std::filesystem::exists(workingPath)){
-            std::filesystem::create_directories(workingPath);
-         }
-
-      }
-   }
-}
-
-template <typename T>
-void printVector(const std::vector<T>& vec){
-   for(T item : vec){
-      std::cout << item << ", ";
-   }
-   std::cout << std::endl;
-}
 
 void ManageDecomp(std::ifstream & file, std::string filenamelong){
    // Header Manager
@@ -151,8 +69,8 @@ void ManageDecomp(std::ifstream & file, std::string filenamelong){
       file.seekg(Offset, std::ios::beg);
       // std::cout << filename+std::filesystem::path::preferred_separator+filePath << std::endl;
       // std::cout << file.tellg() << std::endl;
-      createParentDirectories(filename+std::filesystem::path::preferred_separator+filePath);
-      std::ofstream assetFile(filename+std::filesystem::path::preferred_separator+filePath);
+      createParentDirectories(filename+static_cast<char>(std::filesystem::path::preferred_separator)+filePath);
+      std::ofstream assetFile(filename+static_cast<char>(std::filesystem::path::preferred_separator)+filePath);
       std::vector<unsigned char> assetBuffer(Length); // VLA is bad dont write this
       file.read(reinterpret_cast<char*>(assetBuffer.data()), Length);
       assetFile.write(reinterpret_cast<const char*>(assetBuffer.data()), assetBuffer.size());
@@ -160,9 +78,6 @@ void ManageDecomp(std::ifstream & file, std::string filenamelong){
       assetFile.close();
    }
    // jsonFile << std::setw(4) << j.dump(-1, ' ', false, json::error_handler_t::replace) << std::endl;
-
-   
-
 
    // jsonFile.close();
 }
@@ -316,7 +231,7 @@ void PTS(const std::string &fileName, const float &fps, const unsigned long &fla
    // Header Manager
    char code[2]; code[0] = 'S'; code[1] = 'p';
    char verbuff[2]; verbuff[0] = '3'; verbuff[1] = '0';
-   short version = bufftos(verbuff, 0, 2, false); // Seems like [3], [0]
+   short version = bufftoi16(verbuff, 0, 2); // Seems like [3], [0]
    short numFrames = fileVec.size();
    short unused; // Blank?
    unsigned long flags = flagsPass;
@@ -334,6 +249,10 @@ void PTS(const std::string &fileName, const float &fps, const unsigned long &fla
 // Argument -pts (.png to .spa)
 //    output.spa, fps, flags, [input.png, input1.png, input2.png, ...], -pts
 int main(int argc, char *argv[]){
+
+   // Test GUI Code
+
+   // End
 
    if(argc == 3 && static_cast<std::string>(argv[2]) == "-d"){
       std::ifstream file(static_cast<std::string>(argv[1]), std::ios::binary);
@@ -356,11 +275,31 @@ int main(int argc, char *argv[]){
       for(std::size_t i = 4; i < argc-1; ++i){
          fileVec.push_back(static_cast<std::string>(argv[i]));
       }
-
-      PTS(static_cast<std::string>(argv[1]), static_cast<float>(argv[2]), static_cast<unsigned long>(argv[3]), fileVec);
+      char* endPtr;
+      PTS(static_cast<std::string>(argv[1]), std::stof(std::string(argv[2])), std::strtoul(argv[3], &endPtr, 10), fileVec);
    }
 
    return 0;
+}
+
+extern "C" BLKBUILDERDLL_API void BB_Decomp(const char* filePath) {
+   std::string cppFilePath (filePath);
+   std::ifstream file(cppFilePath, std::ios::binary);
+   if(!file.is_open()) { std::cerr << "Could not open file.\n"; return; }
+
+   ManageDecomp(file, cppFilePath);
+
+   file.close();
+}
+
+extern "C" BLKBUILDERDLL_API void BB_STP(const char* filePath) {
+   std::string cppFilePath(filePath);
+   std::ifstream file(cppFilePath, std::ios::binary);
+   if(!file.is_open()) { std::cerr << "Could not open file.\n"; return; }
+
+   STP(file, cppFilePath);
+
+   file.close();
 }
 
 
