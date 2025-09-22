@@ -230,11 +230,24 @@ void STP(std::ifstream & file, std::string filenamelong){
 }
 
 void PTS(const std::string &fileName, const float &fps, const unsigned long &flagsPass, std::vector<std::string> &fileVec){
-   std::ofstream file(fileName, std::ios::binary);
+   // Open the file to read w*h values
+   std::ifstream file(fileName, std::ios::binary);
    if(!file.is_open()) { std::cerr << "Could not open file.\n"; return; }
 
-   std::vector<unsigned char> pngBuffer;
-   // unsigned error = lodepng::decode(pngBuffer);
+   file.seekg(16);
+   unsigned w; unsigned h;
+   file.read((char *)&w, 4);
+   file.read((char *)&h, 4);
+   file.close(); // Close the file to avoid overlapping memory
+
+   // Read png data into the buffer (from file name???)
+   std::vector<unsigned char> fileBuffer;
+   lodepng::load_file(fileBuffer, fileName);
+
+   // Decode PNG data into the dataBuffer
+            // !!! MASSIVE RE-WRITE. YOU ARE READING IN MULTIPLE PNGS (1 PNG = 1 FRAME)
+   std::vector<unsigned char> dataBuffer;
+   unsigned error = lodepng::decode(dataBuffer, w, h, fileBuffer);
 
    // Header Manager -- 20 bytes
    char code[2]; code[0] = 'S'; code[1] = 'p';
@@ -244,14 +257,37 @@ void PTS(const std::string &fileName, const float &fps, const unsigned long &fla
    short unused; // Blank?
    unsigned long flags = flagsPass;
    float framesPerSecond = fps;
-   long dataStartOffset; // Start building the file before inputting and take the header + frame header count * frame header size  + seg header count * seg header size
+   // Header+(numFrames*FrameManager+SegManager)
+   long dataStartOffset = 20 + numFrames * (16 + 20);
 
+   std::vector<std::size_t> segGroupVec;
+   size_t totalSegs = 0;
    // Frame Header Manager -- 16 bytes * numFrames
+   for (int i=0;i<numFrames;++i) {
+      short mode; // Set a default one for now
+      short hasAlpha; // Try not to take user input, that feels like a lot of work
+      short width; // Read these in from the png shit
+      short height;
+      short hotSpotX;
+      short hotSpotY; // Does stay even know these?
+      short unused2; // Noted to be padding?
+      short numSegments = 1; // I can't be assed to write a segment thing
+      segGroupVec.push_back(numSegments);
+      totalSegs += numSegments;
+
+      std::size_t segGroup = segGroupVec.size()-1;
+      int groupCount = 0;
+
+      // Seg Header Manager -- 20 * numFrames ( * numSegments but Im not doing multiple segments)
+      // Probably just put 1 segment per frame
+      for (int c=0;c<numSegments;++c) {
+
+      }
+   }
 
 
-   // Seg Header Manager -- 20 * numSegments (* numFrames)
 
-   file.close();
+   // file.close();
 }
 
 

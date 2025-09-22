@@ -6,6 +6,7 @@
 #include <filesystem>
 #include <cstring>
 #include <cstdint>
+#include <winsock.h>
 #include "lib/nlohmann/json.hpp"
 #include "lib/lodepng/lodepng.h"
 #include "lib/blkutils.h"
