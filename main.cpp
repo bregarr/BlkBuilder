@@ -70,7 +70,7 @@ void ManageDecomp(std::ifstream & file, std::string filenamelong){
       // std::cout << filename+std::filesystem::path::preferred_separator+filePath << std::endl;
       // std::cout << file.tellg() << std::endl;
       createParentDirectories(filename+static_cast<char>(std::filesystem::path::preferred_separator)+filePath);
-      std::ofstream assetFile(filename+static_cast<char>(std::filesystem::path::preferred_separator)+filePath);
+      std::ofstream assetFile(filename+static_cast<char>(std::filesystem::path::preferred_separator)+filePath, std::ios::binary);
       std::vector<unsigned char> assetBuffer(Length); // VLA is bad dont write this
       file.read(reinterpret_cast<char*>(assetBuffer.data()), Length);
       assetFile.write(reinterpret_cast<const char*>(assetBuffer.data()), assetBuffer.size());
@@ -135,6 +135,8 @@ void STP(std::ifstream & file, std::string filenamelong){
       segGroupVec.push_back(numSegments);
       totalSegs += numSegments;
 
+      std::cout << "BLKBLDR:: Previous Frame with mode: " << mode << std::endl;
+
 
       std::size_t segGroup = segGroupVec.size()-1;
       int groupCount = 0;
@@ -190,7 +192,8 @@ void STP(std::ifstream & file, std::string filenamelong){
       std::string combinedFileName = filename+std::to_string(i)+".png";
       // createParentDirectories(filename+std::filesystem::path::preferred_separator+filePath);
 
-      lodepng::State state;
+      LodePNGColorType cType = LCT_RGBA;
+      unsigned bitdepth = 8;
       const std::size_t expected_rgba = segData[2 + segDataLen*i] * segData[3 + segDataLen*i] * 4;
       const std::size_t expected_rgb  = segData[2 + segDataLen*i] * segData[3 + segDataLen*i] * 3;
       const std::size_t expected_gray = segData[2 + segDataLen*i] * segData[3 + segDataLen*i];
@@ -212,9 +215,11 @@ void STP(std::ifstream & file, std::string filenamelong){
       else if (expected_gray == rawImageBuffer.at(i).size()){ //grey-scale
          std::cout << "BLKBLDR:: Not enough bytes found. Outputting in greyscale." << std::endl;
          frameBuffer = rawImageBuffer.at(i);
+         cType = LCT_GREY;
+         bitdepth = 8;
       }
 
-      unsigned error = lodepng::encode(combinedFileName, frameBuffer, segData[2 + segDataLen*i], segData[3 + segDataLen*i]); // , LCT_GREY, 8
+      unsigned error = lodepng::encode(combinedFileName, frameBuffer, segData[2 + segDataLen*i], segData[3 + segDataLen*i], cType); // , LCT_GREY, 8
       if(error){
          std::cerr << "PNG Encode Error " << error << ": " << lodepng_error_text(error) << "\n";
       }
@@ -227,8 +232,11 @@ void STP(std::ifstream & file, std::string filenamelong){
 void PTS(const std::string &fileName, const float &fps, const unsigned long &flagsPass, std::vector<std::string> &fileVec){
    std::ofstream file(fileName, std::ios::binary);
    if(!file.is_open()) { std::cerr << "Could not open file.\n"; return; }
-   
-   // Header Manager
+
+   std::vector<unsigned char> pngBuffer;
+   // unsigned error = lodepng::decode(pngBuffer);
+
+   // Header Manager -- 20 bytes
    char code[2]; code[0] = 'S'; code[1] = 'p';
    char verbuff[2]; verbuff[0] = '3'; verbuff[1] = '0';
    short version = bufftoi16(verbuff, 0, 2); // Seems like [3], [0]
@@ -237,6 +245,11 @@ void PTS(const std::string &fileName, const float &fps, const unsigned long &fla
    unsigned long flags = flagsPass;
    float framesPerSecond = fps;
    long dataStartOffset; // Start building the file before inputting and take the header + frame header count * frame header size  + seg header count * seg header size
+
+   // Frame Header Manager -- 16 bytes * numFrames
+
+
+   // Seg Header Manager -- 20 * numSegments (* numFrames)
 
    file.close();
 }
@@ -284,7 +297,7 @@ int main(int argc, char *argv[]){
 
 extern "C" BLKBUILDERDLL_API void BB_Decomp(const char* filePath) {
    std::string cppFilePath (filePath);
-   std::ifstream file(cppFilePath, std::ios::binary);
+   std::ifstream file(cppFilePath, std::ios::out | std::ios::binary);
    if(!file.is_open()) { std::cerr << "Could not open file.\n"; return; }
 
    ManageDecomp(file, cppFilePath);
@@ -294,7 +307,7 @@ extern "C" BLKBUILDERDLL_API void BB_Decomp(const char* filePath) {
 
 extern "C" BLKBUILDERDLL_API void BB_STP(const char* filePath) {
    std::string cppFilePath(filePath);
-   std::ifstream file(cppFilePath, std::ios::binary);
+   std::ifstream file(cppFilePath, std::ios::out | std::ios::binary);
    if(!file.is_open()) { std::cerr << "Could not open file.\n"; return; }
 
    STP(file, cppFilePath);

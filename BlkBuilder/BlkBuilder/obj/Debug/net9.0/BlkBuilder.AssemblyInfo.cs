@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("BlkBuilder")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+c78679694fd138742e3d86c124f1db34ef83c2b3")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+347acabc4d4bade9cc0eff3d378aa770acd8332c")]
 [assembly: System.Reflection.AssemblyProductAttribute("BlkBuilder")]
 [assembly: System.Reflection.AssemblyTitleAttribute("BlkBuilder")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

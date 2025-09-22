@@ -9,17 +9,35 @@
         Icon="/Assets/avalonia-logo.ico"
         Title="BlkBuilder">
 
+    <Window.Styles>
+        <Style Selector="TextBlock.h1">
+            <Setter Property="FontSize" Value="56"/>
+        </Style>
+        <Style Selector="TextBlock.h3">
+            <Setter Property="FontSize" Value="12"/>
+        </Style>
+    </Window.Styles>
+    
     <Design.DataContext>
         <!-- This only sets the DataContext for the previewer in an IDE,
              to set the actual DataContext for runtime, set the DataContext property in code (look at App.axaml.cs) -->
         <vm:MainWindowViewModel/>
     </Design.DataContext>
     
-    <StackPanel>
-        <TextBlock>Select a valid AWoK file to convert!</TextBlock>
-        <Button Click="UploadFile">Upload File</Button>
-        <TextBlock x:Name="FileSelectName" Text="No file selected"/>
-        <Button x:Name="DecompButton" Click="DecompButtonHandler">Convert File!</Button>
-    </StackPanel>
+    <Panel HorizontalAlignment="Center">
+        <StackPanel Margin="10">
+            <TextBlock Text="BlkBuilder" Classes="h1"/>
+            <TextBlock Text="Version 0.1" Classes="h3"/>
+        </StackPanel>
+        
+        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Left">
+            <StackPanel>
+                <TextBlock>Select a valid AWoK file to convert!</TextBlock>
+                <Button Click="UploadFile">Upload File</Button>
+                <TextBlock x:Name="FileSelectName" Text="No file selected"/>
+                <Button x:Name="DecompButton" Click="DecompButtonHandler">Convert File!</Button>
+            </StackPanel>
+        </StackPanel>
+    </Panel>
 
 </Window>
