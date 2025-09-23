@@ -22,4 +22,6 @@ void createParentDirectories(const std::string & filePath);
 template <typename T>
 void printVector(const std::vector<T>& vec);
 
+unsigned fileToBuffer(std::string fileName, std::vector<unsigned char> & output, short & width, short & height);
+
 #endif //BLKBUILDER_BLKUTILS_H

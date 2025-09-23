@@ -230,38 +230,24 @@ void STP(std::ifstream & file, std::string filenamelong){
 }
 
 void PTS(const std::string &fileName, const float &fps, const unsigned long &flagsPass, std::vector<std::string> &fileVec){
-   // Open the file to read w*h values
-   std::ifstream file(fileName, std::ios::binary);
-   if(!file.is_open()) { std::cerr << "Could not open file.\n"; return; }
-
-   file.seekg(16);
-   unsigned w; unsigned h;
-   file.read((char *)&w, 4);
-   file.read((char *)&h, 4);
-   file.close(); // Close the file to avoid overlapping memory
-
-   // Read png data into the buffer (from file name???)
-   std::vector<unsigned char> fileBuffer;
-   lodepng::load_file(fileBuffer, fileName);
-
-   // Decode PNG data into the dataBuffer
-            // !!! MASSIVE RE-WRITE. YOU ARE READING IN MULTIPLE PNGS (1 PNG = 1 FRAME)
-   std::vector<unsigned char> dataBuffer;
-   unsigned error = lodepng::decode(dataBuffer, w, h, fileBuffer);
+   std::vector<unsigned char> dataHoldingBuffer;
 
    // Header Manager -- 20 bytes
    char code[2]; code[0] = 'S'; code[1] = 'p';
    char verbuff[2]; verbuff[0] = '3'; verbuff[1] = '0';
    short version = bufftoi16(verbuff, 0, 2); // Seems like [3], [0]
    short numFrames = fileVec.size();
-   short unused; // Blank?
+   short unused = 0; // Blank?
    unsigned long flags = flagsPass;
    float framesPerSecond = fps;
+
+   long currentOffset = 20 + numFrames * (16 + 20);
    // Header+(numFrames*FrameManager+SegManager)
-   long dataStartOffset = 20 + numFrames * (16 + 20);
+   long dataStartOffset = currentOffset;
 
    std::vector<std::size_t> segGroupVec;
    size_t totalSegs = 0;
+
    // Frame Header Manager -- 16 bytes * numFrames
    for (int i=0;i<numFrames;++i) {
       short mode; // Set a default one for now
@@ -275,13 +261,23 @@ void PTS(const std::string &fileName, const float &fps, const unsigned long &fla
       segGroupVec.push_back(numSegments);
       totalSegs += numSegments;
 
-      std::size_t segGroup = segGroupVec.size()-1;
-      int groupCount = 0;
+      std::vector<unsigned char> dataBuffer;
+      unsigned error = fileToBuffer(fileVec[i], dataBuffer, width, height);
 
       // Seg Header Manager -- 20 * numFrames ( * numSegments but Im not doing multiple segments)
       // Probably just put 1 segment per frame
-      for (int c=0;c<numSegments;++c) {
+      for(int j=0; j<numSegments; ++j){
+         short segFlags;
+         short numMipMaps;
+         short segWidth = width;
+         short segHeight = height;
+         short xOffset;
+         short yOffset;
+         long segLength = dataBuffer.size();
+         long segOffset = currentOffset;
 
+         currentOffset += dataBuffer.size();
+         dataHoldingBuffer << dataBuffer; // Fix this
       }
    }
 
