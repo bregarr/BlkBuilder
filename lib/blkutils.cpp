@@ -74,3 +74,21 @@ void printVector(const std::vector<T>& vec){
     }
     std::cout << std::endl;
 }
+
+unsigned fileToBuffer(std::string fileName, std::vector<unsigned char> &output, short & width, short & height) {
+    std::ifstream file(fileName, std::ios::binary);
+    if(!file.is_open()) { std::cerr << "Could not open file.\n"; return -1; }
+
+    file.seekg(16);
+    file.read((char *)&width, 4);
+    file.read((char *)&height, 4);
+    file.close(); // Close the file to avoid overlapping memory
+
+    // Read png data into the buffer (from file name???)
+    std::vector<unsigned char> fileBuffer;
+    lodepng::load_file(fileBuffer, fileName);
+
+    // Decode PNG data into the dataBuffer
+    // !!! MASSIVE RE-WRITE. YOU ARE READING IN MULTIPLE PNGS (1 PNG = 1 FRAME)
+    return lodepng::decode(output, w, h, fileBuffer);
+}
