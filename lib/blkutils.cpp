@@ -1,7 +1,7 @@
 ﻿
 #include "blkutils.h"
 
-uint16_t bufftoi16(const char buff[], const size_t & start, const size_t & end){
+uint16_t bufftoi16(const unsigned char buff[], const size_t & start, const size_t & end){
     size_t length = end - start;
     uint16_t val;
     unsigned char bytes[length];
@@ -9,7 +9,7 @@ uint16_t bufftoi16(const char buff[], const size_t & start, const size_t & end){
     std::memcpy(&val, bytes, length);
     return val;
 }
-uint32_t bufftoi32(char buff[], const size_t & start, const size_t & end){
+uint32_t bufftoi32(char unsigned buff[], const size_t & start, const size_t & end){
     size_t length = end - start;
     if (length > sizeof(uint32_t)) {
         throw std::runtime_error("Length too large for uint32_t");
@@ -18,7 +18,7 @@ uint32_t bufftoi32(char buff[], const size_t & start, const size_t & end){
     std::memcpy(&val, buff + start, length);
     return val;
 }
-int bufftoi(const char buff[], const size_t & start, const size_t & end){
+int bufftoi(const unsigned char buff[], const size_t & start, const size_t & end){
     size_t length = end - start;
     char val;
     unsigned char bytes[length];
@@ -27,7 +27,7 @@ int bufftoi(const char buff[], const size_t & start, const size_t & end){
     return val;
 }
 
-std::string bufftos(const char buff[], const size_t & start, const size_t & end, bool skipSpace){
+std::string bufftos(const unsigned char buff[], const size_t & start, const size_t & end, bool skipSpace){
     std::string returnString;
     for(int i=start; i<end; ++i){
         if(isspace(buff[i]) || buff[i] == '\u0000') { return returnString; }
@@ -88,23 +88,30 @@ void printVector(const std::vector<T>& vec){
     std::cout << std::endl;
 }
 
-unsigned fileToBuffer(std::string fileName, std::vector<unsigned char> &output, short & width, short & height) {
-    std::ifstream file(fileName, std::ios::binary);
-    if(!file.is_open()) { std::cerr << "Could not open file.\n"; return -1; }
-
-    file.seekg(16);
-    file.read((char *)&width, 4);
-    file.read((char *)&height, 4);
-    file.close(); // Close the file to avoid overlapping memory
-
+unsigned fileToBuffer(std::string fileName, std::vector<unsigned char> &output, unsigned & width, unsigned & height, short & hasAlpha) {
     // Read png data into the buffer (from file name???)
     std::vector<unsigned char> fileBuffer;
     lodepng::load_file(fileBuffer, fileName);
-
-    unsigned w = width;
-    unsigned h = height;
+    lodepng::State state;
 
     // Decode PNG data into the dataBuffer
     // !!! MASSIVE RE-WRITE. YOU ARE READING IN MULTIPLE PNGS (1 PNG = 1 FRAME)
-    return lodepng::decode(output, w, h, fileBuffer);
+    unsigned error =  lodepng::decode(output, width, height, state, fileBuffer);
+
+    const LodePNGColorMode& color = state.info_png.color;
+    switch (color.colortype) {
+        case LCT_RGBA:
+        case LCT_GREY_ALPHA:
+            hasAlpha = true;
+            break;
+        case LCT_RGB:
+        case LCT_GREY:
+            hasAlpha = color.key_defined;
+            break;
+        default:
+            hasAlpha = false;
+            break;
+    }
+
+    return error;
 }
