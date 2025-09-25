@@ -1464,24 +1464,30 @@
     ]
   },
   "packageFolders": {
-    "/home/tex/.nuget/packages/": {}
+    "C:\\Users\\Brendan\\.nuget\\packages\\": {},
+    "C:\\Program Files\\dotnet\\sdk\\NuGetFallbackFolder": {}
   },
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "/home/tex/src/BlkBuilder/BlkBuilder/BlkBuilder/BlkBuilder.csproj",
+      "projectUniqueName": "H:\\BlkBuilder\\BlkBuilder\\BlkBuilder\\BlkBuilder.csproj",
       "projectName": "BlkBuilder",
-      "projectPath": "/home/tex/src/BlkBuilder/BlkBuilder/BlkBuilder/BlkBuilder.csproj",
-      "packagesPath": "/home/tex/.nuget/packages/",
-      "outputPath": "/home/tex/src/BlkBuilder/BlkBuilder/BlkBuilder/obj/",
+      "projectPath": "H:\\BlkBuilder\\BlkBuilder\\BlkBuilder\\BlkBuilder.csproj",
+      "packagesPath": "C:\\Users\\Brendan\\.nuget\\packages\\",
+      "outputPath": "H:\\BlkBuilder\\BlkBuilder\\BlkBuilder\\obj\\",
       "projectStyle": "PackageReference",
+      "fallbackFolders": [
+        "C:\\Program Files\\dotnet\\sdk\\NuGetFallbackFolder"
+      ],
       "configFilePaths": [
-        "/home/tex/.nuget/NuGet/NuGet.Config"
+        "C:\\Users\\Brendan\\AppData\\Roaming\\NuGet\\NuGet.Config",
+        "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
       ],
       "originalTargetFrameworks": [
         "net9.0"
       ],
       "sources": {
+        "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
         "https://api.nuget.org/v3/index.json": {}
       },
       "frameworks": {
@@ -1494,7 +1500,13 @@
         "warnAsError": [
           "NU1605"
         ]
-      }
+      },
+      "restoreAuditProperties": {
+        "enableAudit": "true",
+        "auditLevel": "low",
+        "auditMode": "direct"
+      },
+      "SdkAnalysisLevel": "9.0.300"
     },
     "frameworks": {
       "net9.0": {
@@ -1541,7 +1553,7 @@
             "privateAssets": "all"
           }
         },
-        "runtimeIdentifierGraphPath": "/usr/lib/dotnet/sdk/8.0.118/PortableRuntimeIdentifierGraph.json"
+        "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.305/PortableRuntimeIdentifierGraph.json"
       }
     }
   }

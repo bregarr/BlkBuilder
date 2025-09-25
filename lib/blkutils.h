@@ -16,6 +16,9 @@ std::string bufftos(const char buff[], const size_t & start, const size_t & end,
 void stob(const uint16_t &shrt, char* ret);
 void ltob(const uint32_t &lng, char* ret);
 
+void stobuff(const char[], const short& inp);
+void ltobuff(const char[], const short& inp);
+
 void fixFileFormat(std::string & filePath);
 void createParentDirectories(const std::string & filePath);
 

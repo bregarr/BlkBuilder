@@ -47,6 +47,19 @@ void ltob(const uint32_t &lng, char* ret){
     }
 }
 
+// into buffers
+
+// void stobuff(char* buff, const short& inp) {
+//     size_t length = 2;
+//     uint16_t val;
+//     unsigned char bytes[length];
+//     std::copy(buff+start, buff+end, bytes);
+//     std::memcpy(&val, bytes, length);
+//     return val;
+// }
+// void ltobuff(const char[], const short& inp);
+
+// Utils
 void fixFileFormat(std::string & filePath){
     for(char & c : filePath){
         if(c == '/') { c = std::filesystem::path::preferred_separator; }
@@ -87,6 +100,9 @@ unsigned fileToBuffer(std::string fileName, std::vector<unsigned char> &output, 
     // Read png data into the buffer (from file name???)
     std::vector<unsigned char> fileBuffer;
     lodepng::load_file(fileBuffer, fileName);
+
+    unsigned w = width;
+    unsigned h = height;
 
     // Decode PNG data into the dataBuffer
     // !!! MASSIVE RE-WRITE. YOU ARE READING IN MULTIPLE PNGS (1 PNG = 1 FRAME)

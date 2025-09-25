@@ -24,18 +24,33 @@
         <vm:MainWindowViewModel/>
     </Design.DataContext>
     
-    <Panel HorizontalAlignment="Center">
-        <StackPanel Margin="10">
+    <Panel>
+        <StackPanel HorizontalAlignment="Center" Margin="10">
             <TextBlock Text="BlkBuilder" Classes="h1"/>
             <TextBlock Text="Version 0.1" Classes="h3"/>
         </StackPanel>
         
-        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Left">
+        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Left" Margin="20">
             <StackPanel>
                 <TextBlock>Select a valid AWoK file to convert!</TextBlock>
                 <Button Click="UploadFile">Upload File</Button>
                 <TextBlock x:Name="FileSelectName" Text="No file selected"/>
                 <Button x:Name="DecompButton" Click="DecompButtonHandler">Convert File!</Button>
+            </StackPanel>
+        </StackPanel>
+        
+        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Right" Margin="20">
+            <StackPanel>
+                <TextBlock>Select a location to build!</TextBlock>
+                <Button Click="ChooseLocation">Choose Location!</Button>
+                <TextBlock x:Name="LocationSelectName" Text="No location selected"/>
+                <Button Click="UploadFiles">Choose Files!</Button>
+                <TextBlock x:Name="FilesSelectName" Text="No files uploaded"/>
+                <TextBox Watermark="Target FPS" x:Name="FPSBox"/>
+                <TextBox Watermark="Flags" x:Name="FlagsBox"/>
+                <TextBox Watermark="Mode" x:Name="ModeBox"/>
+                <Button x:Name="CompButton" Click="CompButtonHandler">Convert File!</Button>
+                <TextBlock Text="" x:Name="CompErrorText"/>
             </StackPanel>
         </StackPanel>
     </Panel>

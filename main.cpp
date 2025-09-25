@@ -163,6 +163,7 @@ void STP(std::ifstream & file, std::string filenamelong){
          }
          segData.push_back(segGroup);
          groupCount++;
+         // std::cout << "Flags: " << segFlags << ", " << xOffset << ", " << yOffset << std::endl;
       }
 
    }
@@ -229,61 +230,83 @@ void STP(std::ifstream & file, std::string filenamelong){
 
 }
 
-void PTS(const std::string &fileName, const float &fps, const unsigned long &flagsPass, std::vector<std::string> &fileVec){
-   std::vector<unsigned char> dataHoldingBuffer;
+void PTS(const std::string &fileName, const float &fps, const unsigned long &flagsPass, const short &modePass, std::vector<std::string> &fileVec){
+   std::vector<std::vector<unsigned char>> dataHoldingBuffer;
+   std::ofstream newFile(fileName, std::ios::binary);
 
    // Header Manager -- 20 bytes
    char code[2]; code[0] = 'S'; code[1] = 'p';
-   char verbuff[2]; verbuff[0] = '3'; verbuff[1] = '0';
-   short version = bufftoi16(verbuff, 0, 2); // Seems like [3], [0]
+   char verbuff[2]; verbuff[0] = '3'; verbuff[1] = '0'; // Seems like [3], [0]
    short numFrames = fileVec.size();
    short unused = 0; // Blank?
    unsigned long flags = flagsPass;
    float framesPerSecond = fps;
+   // Convert variables to buffers to read in
+   // char numFramesBuff[2]; stobuff(numFramesBuff, numFrames);
 
    long currentOffset = 20 + numFrames * (16 + 20);
    // Header+(numFrames*FrameManager+SegManager)
    long dataStartOffset = currentOffset;
 
-   std::vector<std::size_t> segGroupVec;
-   size_t totalSegs = 0;
+   newFile << code << verbuff << reinterpret_cast<unsigned char*>(&numFrames) << reinterpret_cast<unsigned char*>(&unused) <<
+               reinterpret_cast<unsigned char*>(&flags) << reinterpret_cast<unsigned char*>(&framesPerSecond);
 
    // Frame Header Manager -- 16 bytes * numFrames
    for (int i=0;i<numFrames;++i) {
-      short mode; // Set a default one for now
-      short hasAlpha; // Try not to take user input, that feels like a lot of work
+      short mode = modePass; // Set a default one for now
+      short hasAlpha = false; // Try not to take user input, that feels like a lot of work
       short width; // Read these in from the png shit
       short height;
-      short hotSpotX;
-      short hotSpotY; // Does stay even know these?
-      short unused2; // Noted to be padding?
+      short hotSpotX = 0;
+      short hotSpotY = 0; // Does stay even know these?
+      short unused2 = 0; // Noted to be padding?
       short numSegments = 1; // I can't be assed to write a segment thing
-      segGroupVec.push_back(numSegments);
-      totalSegs += numSegments;
 
       std::vector<unsigned char> dataBuffer;
       unsigned error = fileToBuffer(fileVec[i], dataBuffer, width, height);
+      if (error) {
+         std::cerr << "PNG Encode Error " << error << ": " << lodepng_error_text(error) << "\n";
+      }
+      std::size_t expected_rgba = width * height * 4;
+      if (dataBuffer.size() == expected_rgba) {
+         hasAlpha = true;
+      }
+
+      newFile << mode << hasAlpha << width << height << hotSpotX << hotSpotY << unused2 << numSegments;
 
       // Seg Header Manager -- 20 * numFrames ( * numSegments but Im not doing multiple segments)
       // Probably just put 1 segment per frame
       for(int j=0; j<numSegments; ++j){
-         short segFlags;
-         short numMipMaps;
+         short segFlags = 0; // Take input probably, or learn what a flag is that works maybe
+         short numMipMaps = 0;
          short segWidth = width;
          short segHeight = height;
-         short xOffset;
-         short yOffset;
+         short xOffset = 0; // I think these are unused
+         short yOffset = 0;
          long segLength = dataBuffer.size();
          long segOffset = currentOffset;
 
          currentOffset += dataBuffer.size();
-         dataHoldingBuffer << dataBuffer; // Fix this
+         dataHoldingBuffer.push_back(dataBuffer); // Fixed
+
+         newFile << reinterpret_cast<unsigned char*>(&segFlags) << reinterpret_cast<unsigned char*>(&numMipMaps) <<
+            reinterpret_cast<unsigned char*>(&segWidth) << reinterpret_cast<unsigned char*>(&segHeight) <<
+               reinterpret_cast<unsigned char*>(&xOffset) << reinterpret_cast<unsigned char*>(&yOffset) <<
+                  reinterpret_cast<unsigned char*>(&segLength) << reinterpret_cast<unsigned char*>(&segOffset);
+      }
+   }
+
+   std::cout << dataHoldingBuffer.size() << std::endl;
+   for (std::vector<unsigned char> indivDataBuffer : dataHoldingBuffer) {
+      std::cout << indivDataBuffer.size() << std::endl;
+      for (unsigned char c : indivDataBuffer) {
+         newFile << c;
       }
    }
 
 
 
-   // file.close();
+   newFile.close();
 }
 
 
@@ -315,13 +338,13 @@ int main(int argc, char *argv[]){
 
       file.close();
    }
-   else if(argc >= 6 && static_cast<std::string>(argv[argc-1]) == "-pts"){
+   else if(argc >= 7 && static_cast<std::string>(argv[argc-1]) == "-pts"){
       std::vector<std::string> fileVec;
       for(std::size_t i = 4; i < argc-1; ++i){
          fileVec.push_back(static_cast<std::string>(argv[i]));
       }
       char* endPtr;
-      PTS(static_cast<std::string>(argv[1]), std::stof(std::string(argv[2])), std::strtoul(argv[3], &endPtr, 10), fileVec);
+      PTS(static_cast<std::string>(argv[1]), std::stof(std::string(argv[2])), std::strtoul(argv[3], &endPtr, 10), std::stoi(std::string(argv[4])), fileVec);
    }
 
    return 0;
@@ -347,6 +370,16 @@ extern "C" BLKBUILDERDLL_API void BB_STP(const char* filePath) {
    file.close();
 }
 
+extern "C" BLKBUILDERDLL_API void BB_PTS(const char* newFilePath, const float fps, const unsigned long flagsPass, const short modePass, const char** fileVec, int fileCount) {
+   std::string cppFilePath(newFilePath);
+
+   std::vector<std::string> cppFileVec;
+   for (int i=0; i<fileCount; ++i) {
+      if (fileVec[i]) { cppFileVec.push_back(fileVec[i]); }
+   }
+
+   PTS(cppFilePath, fps, flagsPass, modePass, cppFileVec);
+}
 
 // Json shit
    // for(int i=0; i<Size; ++i){
