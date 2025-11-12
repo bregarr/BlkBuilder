@@ -16,6 +16,9 @@
         <Style Selector="TextBlock.h3">
             <Setter Property="FontSize" Value="12"/>
         </Style>
+        <Style Selector="TextBlock.ErrorConsole">
+            <Setter Property="Foreground" Value="Red"/>
+        </Style>
     </Window.Styles>
     
     <Design.DataContext>
@@ -25,11 +28,13 @@
     </Design.DataContext>
     
     <Panel>
+        <!-- Title Part -->
         <StackPanel HorizontalAlignment="Center" Margin="10">
             <TextBlock Text="BlkBuilder" Classes="h1"/>
             <TextBlock Text="Version 0.1" Classes="h3"/>
         </StackPanel>
         
+        <!-- Decompile File -->
         <StackPanel VerticalAlignment="Center" HorizontalAlignment="Left" Margin="20">
             <StackPanel>
                 <TextBlock>Select a valid AWoK file to convert!</TextBlock>
@@ -39,6 +44,7 @@
             </StackPanel>
         </StackPanel>
         
+        <!-- Recompile File -->
         <StackPanel VerticalAlignment="Center" HorizontalAlignment="Right" Margin="20">
             <StackPanel>
                 <TextBlock>Select a location to build!</TextBlock>
@@ -52,6 +58,12 @@
                 <Button x:Name="CompButton" Click="CompButtonHandler">Convert File!</Button>
                 <TextBlock Text="" x:Name="CompErrorText"/>
             </StackPanel>
+        </StackPanel>
+        
+        <!-- Console -->
+        <StackPanel HorizontalAlignment="Center" Margin="10" VerticalAlignment="Bottom" Classes="ErrorConsole" Name="ErrorConsole">
+            <TextBlock Text="Error Console" Classes="h2 ErrorConsole"/>
+            <TextBlock Text="" Classes="h3 ErrorConsole"/>
         </StackPanel>
     </Panel>
 

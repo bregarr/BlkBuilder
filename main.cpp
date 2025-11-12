@@ -243,7 +243,7 @@ void PTS(const std::string &fileName, const float &fps, const unsigned long &fla
    // Convert variables to buffers to read in
    // char numFramesBuff[2]; stobuff(numFramesBuff, numFrames);
 
-   long currentOffset = 20 + numFrames * (16 + 20);
+   long currentOffset = 20 + (numFrames * (16 + 20));
    // Header+(numFrames*FrameManager+SegManager)
    long dataStartOffset = currentOffset;
 

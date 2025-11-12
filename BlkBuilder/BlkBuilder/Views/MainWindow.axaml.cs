@@ -102,7 +102,7 @@ public partial class MainWindow : Window
 			else FileSelectName.Text = "Please select a valid BLK file!";
 		}
 		catch(Exception e){
-			Console.WriteLine($"Error with file!: {e}");
+			ReadToConsole($"Error with file!: {e}");
 		}
 	}
 
@@ -112,7 +112,7 @@ public partial class MainWindow : Window
 			CompilePNGToSPA();
 		}
 		catch(Exception e){
-			Console.WriteLine($"Error with file!: {e}");
+			ReadToConsole($"Error with file!: {e}");
 		}
 	}
 	
@@ -126,7 +126,7 @@ public partial class MainWindow : Window
 		catch{ CompErrorText.Text = "Please enter a valid integer for Flags!"; return; }
 		try{ modePass = short.Parse(ModeBox.Text); }
 		catch{ CompErrorText.Text = "Please enter a valid integer for Mode!"; return; }
-		Console.WriteLine($"Building File {_FILEPATH}");
+		ReadToConsole($"Building File {_FILEPATH}");
 		BB_PTS(_FILEPATH, fps, flagsPass, modePass, _INPUTFILES.ToArray(), _INPUTFILES.Count);
 	}
 	
@@ -142,4 +142,10 @@ public partial class MainWindow : Window
 	{
 		Patterns = new[] { "*.blk", "*.spa" }
 	};
+
+	private void ReadToConsole(string newText){
+		Console.WriteLine(newText);
+		var consoleTextBox = this.FindControl<TextBlock>("ErrorConsole");
+		if(consoleTextBox != null) consoleTextBox.Text += $"\n{newText}";
+	}
 }
