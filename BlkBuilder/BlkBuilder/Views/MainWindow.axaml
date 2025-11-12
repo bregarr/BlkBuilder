@@ -61,9 +61,9 @@
         </StackPanel>
         
         <!-- Console -->
-        <StackPanel HorizontalAlignment="Center" Margin="10" VerticalAlignment="Bottom" Classes="ErrorConsole" Name="ErrorConsole">
+        <StackPanel HorizontalAlignment="Center" Margin="10" VerticalAlignment="Bottom" Classes="ErrorConsole">
             <TextBlock Text="Error Console" Classes="h2 ErrorConsole"/>
-            <TextBlock Text="" Classes="h3 ErrorConsole"/>
+            <TextBlock Text="" Classes="h3 ErrorConsole" Name="ErrorConsole"/>
         </StackPanel>
     </Panel>
 
