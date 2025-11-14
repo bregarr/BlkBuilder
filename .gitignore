@@ -3,3 +3,5 @@ blockfiles/
 CMakeLists/
 main/
 *.lib
+bin/
+obj/
