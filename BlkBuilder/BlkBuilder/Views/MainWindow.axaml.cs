@@ -22,7 +22,7 @@ public partial class MainWindow : Window
 	[DllImport("libBlkBuilderDll.dll", CallingConvention = CallingConvention.Cdecl)]
 	private static extern void BB_STP(string fileName);
 	[DllImport("libBlkBuilderDll.dll", CallingConvention = CallingConvention.Cdecl)]
-	private static extern void BB_PTS(string newFilePath, float fps, long flagsPass, short modePass, [In] string[] fileVec, int fileCount);
+	private static extern void BB_PTS(string newFilePath, float fps, long flagsPass, short modePass, short segModePass, [In] string[] fileVec, int fileCount);
 
 	private string _FILEPATH;
 	private AwokFileType _FILETYPE;
@@ -120,14 +120,17 @@ public partial class MainWindow : Window
 		float fps;
 		long flagsPass;
 		short modePass;
+		short segModePass;
 		try{ fps = float.Parse(FPSBox.Text); }
 		catch{ CompErrorText.Text = "Please enter a valid float for FPS!"; return; }
 		try{ flagsPass = long.Parse(FlagsBox.Text); }
 		catch{ CompErrorText.Text = "Please enter a valid integer for Flags!"; return; }
 		try{ modePass = short.Parse(ModeBox.Text); }
 		catch{ CompErrorText.Text = "Please enter a valid integer for Mode!"; return; }
+		try{ segModePass = short.Parse(SegModeBox.Text); }
+		catch{ CompErrorText.Text = "Please enter a valid integer for Segment Mode!"; return; }
 		ReadToConsole($"Building File {_FILEPATH}");
-		BB_PTS(_FILEPATH, fps, flagsPass, modePass, _INPUTFILES.ToArray(), _INPUTFILES.Count);
+		BB_PTS(_FILEPATH, fps, flagsPass, modePass, segModePass, _INPUTFILES.ToArray(), _INPUTFILES.Count);
 	}
 	
 	// Utils

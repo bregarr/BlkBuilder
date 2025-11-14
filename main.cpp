@@ -135,6 +135,7 @@ void STP(std::ifstream & file, std::string filenamelong){
       segGroupVec.push_back(numSegments);
       totalSegs += numSegments;
 
+      std::cout << "BLKBLDR:: Mode of frame: " << static_cast<int>(mode) << std::endl;
 
       std::size_t segGroup = segGroupVec.size()-1;
       int groupCount = 0;
@@ -159,6 +160,7 @@ void STP(std::ifstream & file, std::string filenamelong){
             groupCount = 0;
             segGroup++;
          }
+         std::cout << "BLKBLDR:: Segment Flags: " << segFlags << std::endl;
          segData.push_back(segGroup);
          groupCount++;
          // std::cout << "Flags: " << segFlags << ", " << xOffset << ", " << yOffset << std::endl;
@@ -179,13 +181,13 @@ void STP(std::ifstream & file, std::string filenamelong){
       file.read(reinterpret_cast<char*>(temp.data() + oldSize), segData[i*segDataLen]);
 
       if(bufferIndex != prevIndex) {
-         rawImageBuffer.push_back(temp);
-         temp.clear();
+         rawImageBuffer.push_back(std::move(temp));
+         temp = std::vector<uint8_t>();
       }
       prevIndex = bufferIndex;
    }
    if(!temp.empty()){
-      rawImageBuffer.push_back(temp);
+      rawImageBuffer.push_back(std::move(temp));
    }
 
    for (int i=0; i<numFrames; ++i){
@@ -203,13 +205,15 @@ void STP(std::ifstream & file, std::string filenamelong){
       }
       else if (expected_rgb == rawImageBuffer.at(i).size()){ // rgb
          std::cout << "BLKBLDR:: Not enough bytes found. Removing alpha channel." << std::endl;
-         std::size_t rgbSize = rawImageBuffer.at(i).size() / 3 * 4;
-         frameBuffer.reserve(rgbSize);
-         for(int j=0; j<rawImageBuffer.at(i).size(); j+=3){
-            frameBuffer.push_back(rawImageBuffer.at(i).at(j));
-            frameBuffer.push_back(rawImageBuffer.at(i).at(j+1));
-            frameBuffer.push_back(rawImageBuffer.at(i).at(j+2));
-            frameBuffer.push_back(255);
+         std::size_t pixelSize = segData[2 + segDataLen*i] * segData[3 + segDataLen*i];
+         frameBuffer.resize(pixelSize * 4);
+
+         const auto& src = rawImageBuffer.at(i);
+         for(int j=0; j < pixelSize; ++j){
+            frameBuffer[4*j] = src.at(j*3);
+            frameBuffer[4*j+1] = src.at(j*3+1);
+            frameBuffer[4*j+2] = src.at(j*3+2);
+            frameBuffer[4*j+3] = 255;
          }
       }
       else if (expected_gray == rawImageBuffer.at(i).size()){ //grey-scale
@@ -229,7 +233,7 @@ void STP(std::ifstream & file, std::string filenamelong){
 
 }
 
-void PTS(const std::string &fileName, const float &fps, const unsigned long &flagsPass, const short &modePass, std::vector<std::string> &fileVec){
+void PTS(const std::string &fileName, const float &fps, const unsigned long &flagsPass, const short &modePass, const short &segFlagsPass, std::vector<std::string> &fileVec){
    std::vector<std::vector<unsigned char>> dataHoldingBuffer;
    std::ofstream newFile(fileName, std::ios::binary);
 
@@ -243,9 +247,9 @@ void PTS(const std::string &fileName, const float &fps, const unsigned long &fla
    // Convert variables to buffers to read in
    // char numFramesBuff[2]; stobuff(numFramesBuff, numFrames);
 
-   long currentOffset = 20 + (numFrames * (16 + 20));
+   long currentOffset = 0;
    // Header+(numFrames*FrameManager+SegManager)
-   long dataStartOffset = currentOffset;
+   long dataStartOffset = 20 + (numFrames * (16 + 20));
 
    newFile.write(reinterpret_cast<char*>(&code), sizeof(code));
    newFile.write(reinterpret_cast<char*>(&verbuff), sizeof(verbuff));
@@ -275,6 +279,13 @@ void PTS(const std::string &fileName, const float &fps, const unsigned long &fla
          std::cerr << "PNG Encode Error " << error << ": " << lodepng_error_text(error) << "\n";
       }
       std::vector<unsigned char> dataBuffer;
+
+      // Modes:
+      // 6 -- DXT5
+      // 5 -- DXT3
+      // 3 -- DXT1
+      // 1 -- RGB24
+
       if (!hasAlpha) {
          dataBuffer.reserve((tempDataBuffer.size() / 4) * 3);
          for (size_t i=0; i<tempDataBuffer.size(); i+=4) {
@@ -285,6 +296,8 @@ void PTS(const std::string &fileName, const float &fps, const unsigned long &fla
       } else {
          dataBuffer = tempDataBuffer;
       }
+
+      dataHoldingBuffer.push_back(dataBuffer); // Fixed
 
       newFile.write(reinterpret_cast<char *>(&mode), sizeof(mode));
       newFile.write(reinterpret_cast<char *>(&hasAlpha), sizeof(hasAlpha));
@@ -298,17 +311,17 @@ void PTS(const std::string &fileName, const float &fps, const unsigned long &fla
       // Seg Header Manager -- 20 * numFrames ( * numSegments but Im not doing multiple segments)
       // Probably just put 1 segment per frame
       for(int j=0; j<numSegments; ++j){
-         short segFlags = 0; // Take input probably, or learn what a flag is that works maybe
+         short segFlags = segFlagsPass; // Take input probably, or learn what a flag is that works maybe
          short numMipMaps = 0;
          short segWidth = width;
          short segHeight = height;
          short xOffset = 0; // I think these are unused
          short yOffset = 0;
-         long segLength = dataBuffer.size();
+         long segLength = static_cast<long>(dataBuffer.size());
          long segOffset = currentOffset;
 
          currentOffset += dataBuffer.size();
-         dataHoldingBuffer.push_back(dataBuffer); // Fixed
+
 
          newFile.write(reinterpret_cast<char *>(&segFlags), sizeof(segFlags));
          newFile.write(reinterpret_cast<char *>(&numMipMaps), sizeof(numMipMaps));
@@ -321,8 +334,8 @@ void PTS(const std::string &fileName, const float &fps, const unsigned long &fla
       }
    }
 
-   for (std::vector<unsigned char> indivDataBuffer : dataHoldingBuffer) {
-      newFile.write(reinterpret_cast<char*>(indivDataBuffer.data()), indivDataBuffer.size());
+   for (const std::vector<unsigned char>& indivDataBuffer : dataHoldingBuffer) {
+      newFile.write(reinterpret_cast<const char*>(indivDataBuffer.data()), indivDataBuffer.size());
    }
 
 
@@ -359,13 +372,13 @@ int main(int argc, char *argv[]){
 
       file.close();
    }
-   else if(argc >= 7 && static_cast<std::string>(argv[argc-1]) == "-pts"){
+   else if(argc >= 8 && static_cast<std::string>(argv[argc-1]) == "-pts"){
       std::vector<std::string> fileVec;
-      for(std::size_t i = 4; i < argc-1; ++i){
+      for(std::size_t i = 5; i < argc-1; ++i){
          fileVec.push_back(static_cast<std::string>(argv[i]));
       }
       char* endPtr;
-      PTS(static_cast<std::string>(argv[1]), std::stof(std::string(argv[2])), std::strtoul(argv[3], &endPtr, 10), std::stoi(std::string(argv[4])), fileVec);
+      PTS(static_cast<std::string>(argv[1]), std::stof(std::string(argv[2])), std::strtoul(argv[3], &endPtr, 10), std::stoi(std::string(argv[4])), std::stoi(std::string(argv[5])), fileVec);
    }
 
    return 0;
@@ -391,7 +404,7 @@ extern "C" BLKBUILDERDLL_API void BB_STP(const char* filePath) {
    file.close();
 }
 
-extern "C" BLKBUILDERDLL_API void BB_PTS(const char* newFilePath, const float fps, const unsigned long flagsPass, const short modePass, const char** fileVec, int fileCount) {
+extern "C" BLKBUILDERDLL_API void BB_PTS(const char* newFilePath, const float fps, const unsigned long flagsPass, const short modePass, const short segFlagsPass, const char** fileVec, int fileCount) {
    std::string cppFilePath(newFilePath);
 
    std::vector<std::string> cppFileVec;
@@ -399,7 +412,7 @@ extern "C" BLKBUILDERDLL_API void BB_PTS(const char* newFilePath, const float fp
       if (fileVec[i]) { cppFileVec.push_back(fileVec[i]); }
    }
 
-   PTS(cppFilePath, fps, flagsPass, modePass, cppFileVec);
+   PTS(cppFilePath, fps, flagsPass, modePass, segFlagsPass, cppFileVec);
 }
 
 // Json shit

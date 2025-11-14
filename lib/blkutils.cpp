@@ -93,6 +93,7 @@ unsigned fileToBuffer(std::string fileName, std::vector<unsigned char> &output, 
     std::vector<unsigned char> fileBuffer;
     lodepng::load_file(fileBuffer, fileName);
     lodepng::State state;
+    state.info_raw.colortype = LCT_RGBA;
 
     // Decode PNG data into the dataBuffer
     // !!! MASSIVE RE-WRITE. YOU ARE READING IN MULTIPLE PNGS (1 PNG = 1 FRAME)
