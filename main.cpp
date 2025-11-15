@@ -1,6 +1,47 @@
 #include "main.h"
+#include "lib/s3tc/s3tc.h"
 
 using json = nlohmann::json_abi_v3_12_0::json;
+
+void ManageRecomp(std::ifstream & file, std::string filenamelong){
+   // Header Manager
+
+   // 24 bytes
+   int GameIDMaj;
+   int GameIDMin;
+   int Size;
+   int Padding;
+   int PathLength;
+   int Unused;
+   int FileTableOffset;
+   int DataOffset;
+   int Unused2;
+
+   std::string filename = filenamelong.substr(0,filenamelong.size()-4);
+   std::filesystem::create_directory(filename);
+
+   for(int i=0; i<Size; ++i){
+
+      std::string filePath; // Name of file + its directory path
+      fixFileFormat(filePath);
+
+      // 28 Bytes
+      int Offset;
+      int Length;
+      int PadLength;
+      int Unused;
+      int Unused2;
+      std::string MD5;
+
+      createParentDirectories(filename+static_cast<char>(std::filesystem::path::preferred_separator)+filePath);
+      std::ofstream assetFile(filename+static_cast<char>(std::filesystem::path::preferred_separator)+filePath, std::ios::binary);
+      std::vector<unsigned char> assetBuffer(Length); // VLA is bad dont write this
+      file.read(reinterpret_cast<char*>(assetBuffer.data()), Length);
+      assetFile.write(reinterpret_cast<const char*>(assetBuffer.data()), assetBuffer.size());
+
+      assetFile.close();
+   }
+}
 
 void ManageDecomp(std::ifstream & file, std::string filenamelong){
    // Header Manager
@@ -120,6 +161,8 @@ void STP(std::ifstream & file, std::string filenamelong){
    unsigned totalWidth;
    unsigned totalHeight;
 
+   std::vector<short> frameModes;
+
    for(int i=0; i<numFrames; ++i){
       unsigned char FrameHeaderBuffer[16];
       file.read(reinterpret_cast<char*>(FrameHeaderBuffer), 16);
@@ -136,6 +179,7 @@ void STP(std::ifstream & file, std::string filenamelong){
       totalSegs += numSegments;
 
       std::cout << "BLKBLDR:: Mode of frame: " << static_cast<int>(mode) << std::endl;
+      frameModes.push_back(mode);
 
       std::size_t segGroup = segGroupVec.size()-1;
       int groupCount = 0;
@@ -193,14 +237,45 @@ void STP(std::ifstream & file, std::string filenamelong){
    for (int i=0; i<numFrames; ++i){
       std::string combinedFileName = filename+std::to_string(i)+".png";
       // createParentDirectories(filename+std::filesystem::path::preferred_separator+filePath);
-
       LodePNGColorType cType = LCT_RGBA;
       unsigned bitdepth = 8;
       const std::size_t expected_rgba = segData[2 + segDataLen*i] * segData[3 + segDataLen*i] * 4;
       const std::size_t expected_rgb  = segData[2 + segDataLen*i] * segData[3 + segDataLen*i] * 3;
       const std::size_t expected_gray = segData[2 + segDataLen*i] * segData[3 + segDataLen*i];
       std::vector<uint8_t> frameBuffer;
-      if (expected_rgba == rawImageBuffer.at(i).size()){ // rgba
+
+      // Modes:
+      // 6 -- DXT5
+      // 5 -- DXT3
+      // 3 -- DXT1
+      // 1 -- RGB24
+
+      short const mode = frameModes.at(i);
+      std::size_t totalPixels = segData[2 + segDataLen*i] * segData[3 + segDataLen*i] * 4;
+
+      switch (mode) {
+         case 6:
+            // totalPixels is this by default
+            break;
+         case 3:
+            totalPixels = segData[2 + segDataLen*i] * segData[3 + segDataLen*i] / 2;
+            break;
+      }
+
+      auto* dxtImageData = new unsigned long[totalPixels];
+      if (mode == 6) {
+         BlockDecompressImageDXT5(segData[2 + segDataLen*i], segData[3 + segDataLen*i], rawImageBuffer.at(i).data(), dxtImageData);
+         longBufferToVectorBuffer(dxtImageData, frameBuffer, totalPixels);
+         std::cout << "BLKBLDR:: Image Buffer Size: " << frameBuffer.size() << std::endl;
+      }
+      else if (mode == 3) {
+         BlockDecompressImageDXT1(segData[2 + segDataLen*i], segData[3 + segDataLen*i], rawImageBuffer.at(i).data(), dxtImageData);
+         longBufferToVectorBuffer(dxtImageData, frameBuffer, totalPixels);
+         std::cout << "BLKBLDR:: Image Buffer Size: " << frameBuffer.size() << std::endl;
+      }
+
+
+      else if (expected_rgba == rawImageBuffer.at(i).size()){ // rgba
          frameBuffer = rawImageBuffer.at(i);
       }
       else if (expected_rgb == rawImageBuffer.at(i).size()){ // rgb
@@ -227,6 +302,7 @@ void STP(std::ifstream & file, std::string filenamelong){
       if(error){
          std::cerr << "PNG Encode Error " << error << ": " << lodepng_error_text(error) << "\n";
       }
+      delete[](dxtImageData);
    }
 
    std::cout << "BLKBLDR:: Decompiled file with FPS: " << framesPerSecond << ", flags: " << flags << std::endl;
@@ -286,6 +362,13 @@ void PTS(const std::string &fileName, const float &fps, const unsigned long &fla
       // 3 -- DXT1
       // 1 -- RGB24
 
+      // unsigned long dxtImageData;
+      // if (mode == 6) {
+      //    BlockDecompressImageDXT5(width, height, tempDataBuffer.data(), &dxtImageData);
+      // }
+      // else if (mode == 3) {
+      //    BlockDecompressImageDXT1(width, height, tempDataBuffer.data(), &dxtImageData);
+      // }
       if (!hasAlpha) {
          dataBuffer.reserve((tempDataBuffer.size() / 4) * 3);
          for (size_t i=0; i<tempDataBuffer.size(); i+=4) {

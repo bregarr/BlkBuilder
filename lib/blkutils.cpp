@@ -116,3 +116,10 @@ unsigned fileToBuffer(std::string fileName, std::vector<unsigned char> &output, 
 
     return error;
 }
+
+void longBufferToVectorBuffer(const unsigned long* longBuffer, std::vector<uint8_t>& frameBuffer, std::size_t size) {
+    frameBuffer.resize(size);
+    for (std::size_t i = 0; i < size; ++i) {
+        frameBuffer.at(i) = longBuffer[i];
+    }
+}

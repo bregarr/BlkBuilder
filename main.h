@@ -9,6 +9,7 @@
 #include <winsock.h>
 #include "lib/nlohmann/json.hpp"
 #include "lib/lodepng/lodepng.h"
+#include "lib/s3tc/s3tc.h"
 #include "lib/blkutils.h"
 
 // #ifdef BLKBUILDER_EXPORTS

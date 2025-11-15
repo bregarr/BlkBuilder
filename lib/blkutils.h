@@ -26,5 +26,6 @@ template <typename T>
 void printVector(const std::vector<T>& vec);
 
 unsigned fileToBuffer(std::string fileName, std::vector<unsigned char> & output, unsigned & width, unsigned & height, short & hasAlpha);
+void longBufferToVectorBuffer(const unsigned long* longBuffer, std::vector<uint8_t>& frameBuffer, std::size_t size);
 
 #endif //BLKBUILDER_BLKUTILS_H

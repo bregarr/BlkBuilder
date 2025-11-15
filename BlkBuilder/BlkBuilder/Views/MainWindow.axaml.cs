@@ -69,6 +69,11 @@ public partial class MainWindow : Window
 			FileTypeChoices = new [] { AwokTypes }
 		});
 
+		if (file == null){
+			ReadToConsole("No location selected! This causes problems...");
+			return;
+		}
+
 		_FILEPATH = file.Path.LocalPath;
 		LocationSelectName.Text = _FILEPATH;
 	}

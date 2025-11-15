@@ -5,6 +5,7 @@ set(CMAKE_CXX_STANDARD 14)
 
 include_directories(lib/lodepng)
 include_directories(lib/nlohmann)
+include_directories(lib/s3tc)
 include_directories(lib/vc_x64_lib)
 include_directories(lib/vc_x64_lib/mswu)
 include_directories(lib/vc_x64_lib/mswu/wx)
@@ -29,7 +30,7 @@ include_directories(lib/vc_x64_lib/mswud/wx/msw)
 
 
 
-add_library(BlkBuilderDll SHARED main.cpp lib/blkutils.cpp lib/lodepng/lodepng.cpp)
+add_library(BlkBuilderDll SHARED main.cpp lib/blkutils.cpp lib/lodepng/lodepng.cpp lib/s3tc/s3tc.cpp)
 target_link_libraries(BlkBuilderDll PRIVATE
         ${CMAKE_SOURCE_DIR}/lib/libwinpthread-1.dll
 )
@@ -47,7 +48,7 @@ generate_export_header(BlkBuilderDll
                         BASE_NAME BlkBuilderDll
                         EXPORT_FILE_NAME BlkBuilderDll_export.h)
 
-set_target_properties(BlkBuilderDll PROPERTIES RUNTIME_OUTPUT_DIRECTORY "..\\BlkBuilder\\BlkBuilder\\bin\\Debug\\net9.0")
+set_target_properties(BlkBuilderDll PROPERTIES RUNTIME_OUTPUT_DIRECTORY "..\\BlkBuilder\\BlkBuilder\\bin\\Debug\\net9.0\\win-x64")
 set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 
 target_compile_features(BlkBuilderDll PRIVATE cxx_std_20)
